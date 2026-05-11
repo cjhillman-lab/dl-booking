@@ -32,7 +32,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .week-nav{display:flex;align-items:center;gap:8px;margin-bottom:1rem}
 .week-label{flex:1;text-align:center;font-size:14px;font-weight:600}
 .nav-btn{padding:6px 12px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-size:14px}
-.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.cal-grid{display:grid;grid-template-columns:repeat(7,minmax(90px,1fr));gap:6px}
+.cal-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
 .day-col{display:flex;flex-direction:column;gap:5px}
 .day-hdr{text-align:center;padding:4px 2px 8px}
 .day-name{font-size:11px;font-weight:600;color:#999;text-transform:uppercase}
@@ -117,8 +118,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <span class="week-label" id="weekLabel"></span>
         <button class="nav-btn" onclick="nextWeek()">&#8250;</button>
       </div>
-      <div class="cal-grid" id="calGrid"><div class="loading">Loading...</div></div>
-      <div class="legend">
+      <div class="cal-scroll"><div class="cal-grid" id="calGrid"><div class="loading">Loading...</div></div>
+      </div><div class="legend">
         <div class="legend-item"><div class="legend-dot" style="background:#e6f4ea;border-color:#81c995"></div>Booked</div>
         <div class="legend-item"><div class="legend-dot" style="background:#e8f0fe;border-color:#a8c7fa"></div>Still trying</div>
         <div class="legend-item"><div class="legend-dot" style="background:#f8f8f8"></div>Skip</div>
