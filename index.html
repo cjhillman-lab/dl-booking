@@ -240,7 +240,12 @@ function getWeekDates(offset) {
   return Array.from({length:7}, (_, i) => { const d = new Date(monday); d.setDate(monday.getDate()+i); return d; });
 }
 
-function fmtDate(d) { return d.toISOString().split("T")[0]; }
+function fmtDate(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,"0");
+  const day = String(d.getDate()).padStart(2,"0");
+  return `${y}-${m}-${day}`;
+}
 
 function renderCalendar() {
   const dates = getWeekDates(weekOffset);
@@ -292,13 +297,17 @@ function renderCalendar() {
 }
 
 function toggleSlot(el, key, bookedState) {
-  if(bookedState === "booked") return;
   const currentEnabled = el.dataset.enabled === "true";
   const newEnabled = !currentEnabled;
   pendingChanges[key] = newEnabled;
   el.dataset.enabled = newEnabled;
-  el.className = "slot " + (newEnabled ? (bookedState === "trying" ? "trying" : "") : "disabled");
-  el.querySelector(".slot-status").textContent = newEnabled ? "↻ Still trying" : "✕ Skip";
+  if(bookedState === "booked") {
+    el.className = "slot " + (newEnabled ? "booked" : "disabled");
+    el.querySelector(".slot-status").textContent = newEnabled ? "✓ Booked" : "✕ Skip (won't re-book)";
+  } else {
+    el.className = "slot " + (newEnabled ? (bookedState === "trying" ? "trying" : "") : "disabled");
+    el.querySelector(".slot-status").textContent = newEnabled ? "↻ Still trying" : "✕ Skip";
+  }
 }
 
 function prevWeek() { weekOffset--; renderCalendar(); }
