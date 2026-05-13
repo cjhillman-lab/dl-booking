@@ -192,12 +192,13 @@ function clearSession() {
 }
 
 // Auto-unlock if session valid
-if(checkSession()) {
-  document.getElementById("loginWrap").style.display = "none";
-  document.getElementById("app").style.display = "block";
-  // Load after DOM ready
-  window.addEventListener("load", loadAll);
-}
+document.addEventListener("DOMContentLoaded", () => {
+  if(checkSession()) {
+    document.getElementById("loginWrap").style.display = "none";
+    document.getElementById("app").style.display = "block";
+    loadAll();
+  }
+});
 
 document.querySelectorAll(".pin-digit").forEach((el, i) => {
   el.addEventListener("input", () => {
