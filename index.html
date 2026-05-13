@@ -305,8 +305,7 @@ function renderCalendar() {
       html += `<div class="no-classes">—</div>`;
     } else {
       dayClasses.forEach(c => {
-        const state = pendingChanges[c.key] !== undefined ? (pendingChanges[c.key] ? c.booked === "booked" ? "booked" : "trying" : "disabled") : c.booked;
-        const enabled = pendingChanges[c.key] !== undefined ? pendingChanges[c.key] : (c.enabled);
+        const enabled = c.enabled;
         const slotState = c.booked === "booked" ? "booked" : (enabled ? (c.booked === "trying" ? "trying" : "") : "disabled");
         const statusText = c.booked === "booked" ? "✓ Booked" : (enabled ? "↻ Still trying" : "✕ Skip");
         const shortName = c.name.replace("TENNIS CLUB SESSION - ","Tennis ").replace("Padel Club Social Session","Padel Social").replace("CARDIO TENNIS","Cardio Tennis");
