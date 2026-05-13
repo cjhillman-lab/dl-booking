@@ -125,10 +125,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <div class="legend-item"><div class="legend-dot" style="background:#f8f8f8"></div>Skip</div>
       </div>
     </div>
-    <div class="save-bar">
-      <span class="saved-msg" id="calSaved">✓ Saved</span>
-      <button class="save-btn" onclick="saveCalendar()">Save changes</button>
-    </div>
   </div>
 
   <!-- PAUSE TAB -->
@@ -173,9 +169,36 @@ const DAY_FULL = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday",
 
 let statusData = null;
 let weekOffset = 0;
-let pendingChanges = {};
 
 // PIN
+const SESSION_KEY = "dl_booking_session";
+const SESSION_DAYS = 30;
+
+function saveSession() {
+  const expiry = Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000;
+  localStorage.setItem(SESSION_KEY, JSON.stringify({expiry}));
+}
+
+function checkSession() {
+  try {
+    const data = JSON.parse(localStorage.getItem(SESSION_KEY));
+    if(data && data.expiry > Date.now()) return true;
+  } catch(e) {}
+  return false;
+}
+
+function clearSession() {
+  localStorage.removeItem(SESSION_KEY);
+}
+
+// Auto-unlock if session valid
+if(checkSession()) {
+  document.getElementById("loginWrap").style.display = "none";
+  document.getElementById("app").style.display = "block";
+  // Load after DOM ready
+  window.addEventListener("load", loadAll);
+}
+
 document.querySelectorAll(".pin-digit").forEach((el, i) => {
   el.addEventListener("input", () => {
     el.value = el.value.replace(/\D/g,"");
@@ -191,6 +214,7 @@ document.querySelectorAll(".pin-digit").forEach((el, i) => {
 function checkPin() {
   const pin = ["p0","p1","p2","p3"].map(id => document.getElementById(id).value).join("");
   if(pin === PIN) {
+    saveSession();
     document.getElementById("loginWrap").style.display = "none";
     document.getElementById("app").style.display = "block";
     loadAll();
@@ -202,6 +226,7 @@ function checkPin() {
 }
 
 function logout() {
+  clearSession();
   document.getElementById("loginWrap").style.display = "flex";
   document.getElementById("app").style.display = "none";
   ["p0","p1","p2","p3"].forEach(id => document.getElementById(id).value = "");
@@ -296,10 +321,9 @@ function renderCalendar() {
   document.getElementById("calGrid").innerHTML = html;
 }
 
-function toggleSlot(el, key, bookedState) {
+async function toggleSlot(el, key, bookedState) {
   const currentEnabled = el.dataset.enabled === "true";
   const newEnabled = !currentEnabled;
-  pendingChanges[key] = newEnabled;
   el.dataset.enabled = newEnabled;
   if(bookedState === "booked") {
     el.className = "slot " + (newEnabled ? "booked" : "disabled");
@@ -308,29 +332,27 @@ function toggleSlot(el, key, bookedState) {
     el.className = "slot " + (newEnabled ? (bookedState === "trying" ? "trying" : "") : "disabled");
     el.querySelector(".slot-status").textContent = newEnabled ? "↻ Still trying" : "✕ Skip";
   }
-}
-
-function prevWeek() { weekOffset--; renderCalendar(); }
-function nextWeek() { weekOffset++; renderCalendar(); }
-
-async function saveCalendar() {
-  if(Object.keys(pendingChanges).length === 0) return;
+  // Auto-save immediately
   try {
     await fetch(CF_URL + "/api/preferences", {
       method:"POST",
       headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({preferences: pendingChanges})
+      body: JSON.stringify({preferences: {[key]: newEnabled}})
     });
     if(statusData && statusData.classes) {
-      statusData.classes.forEach(c => {
-        if(pendingChanges[c.key] !== undefined) c.enabled = pendingChanges[c.key];
-      });
+      statusData.classes.forEach(c => { if(c.key === key) c.enabled = newEnabled; });
     }
-    pendingChanges = {};
-    showSaved("calSaved");
-    renderCalendar();
-  } catch(e) { alert("Failed to save. Please try again."); }
+  } catch(e) {
+    // Revert on failure
+    el.dataset.enabled = currentEnabled;
+    el.className = "slot " + (currentEnabled ? (bookedState === "booked" ? "booked" : bookedState === "trying" ? "trying" : "") : "disabled");
+    el.querySelector(".slot-status").textContent = currentEnabled ? (bookedState === "booked" ? "✓ Booked" : "↻ Still trying") : "✕ Skip";
+    alert("Failed to save. Please try again.");
+  }
 }
+
+function prevWeek() { weekOffset--; renderCalendar(); }
+function nextWeek() { weekOffset++; renderCalendar(); }
 
 // Pause
 function clearPause() {
