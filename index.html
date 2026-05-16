@@ -117,18 +117,25 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
   <!-- CALENDAR TAB -->
   <div id="tab-calendar">
+    <div class="week-nav">
+      <button class="nav-btn" onclick="prevWeek()">&#8249;</button>
+      <span class="week-label" id="weekLabel"></span>
+      <button class="nav-btn" onclick="nextWeek()">&#8250;</button>
+    </div>
+
     <div class="card">
-      <div class="week-nav">
-        <button class="nav-btn" onclick="prevWeek()">&#8249;</button>
-        <span class="week-label" id="weekLabel"></span>
-        <button class="nav-btn" onclick="nextWeek()">&#8250;</button>
-      </div>
-      <div class="cal-scroll"><div class="cal-grid" id="calGrid"><div class="loading">Loading...</div></div>
-      </div><div class="legend">
+      <div class="section-title" style="color:#1a73e8">👤 Chris</div>
+      <div class="cal-scroll"><div class="cal-grid" id="calGridChris"><div class="loading">Loading...</div></div></div>
+      <div class="legend">
         <div class="legend-item"><div class="legend-dot" style="background:#e6f4ea;border-color:#81c995"></div>Booked</div>
         <div class="legend-item"><div class="legend-dot" style="background:#e8f0fe;border-color:#a8c7fa"></div>Still trying</div>
         <div class="legend-item"><div class="legend-dot" style="background:#f8f8f8"></div>Skip</div>
       </div>
+    </div>
+
+    <div class="card">
+      <div class="section-title" style="color:#e67c00">👤 Kate</div>
+      <div class="cal-scroll"><div class="cal-grid" id="calGridKate"><div class="loading">Loading...</div></div></div>
     </div>
   </div>
 
@@ -154,14 +161,25 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <!-- FAVOURITES TAB -->
   <div id="tab-favourites" style="display:none">
     <div class="card">
-      <div class="section-title">Favourite classes</div>
-      <p style="font-size:12px;color:#999;margin-bottom:0.75rem">These are the classes the script monitors and auto-books. Edit when class times change.</p>
-      <div class="fav-list" id="favList"><div class="loading">Loading...</div></div>
-      <button class="add-btn" onclick="addFavRow()">+ Add class</button>
+      <div class="section-title" style="color:#1a73e8">👤 Chris — Favourite classes</div>
+      <p style="font-size:12px;color:#999;margin-bottom:0.75rem">Edit when class times change.</p>
+      <div class="fav-list" id="favListChris"><div class="loading">Loading...</div></div>
+      <button class="add-btn" onclick="addFavRow('chris')">+ Add class</button>
     </div>
     <div class="save-bar">
-      <span class="saved-msg" id="favSaved">✓ Saved</span>
-      <button class="save-btn" onclick="saveFavourites()">Save favourites</button>
+      <span class="saved-msg" id="favSavedChris">✓ Saved</span>
+      <button class="save-btn" onclick="saveFavourites('chris')">Save Chris's favourites</button>
+    </div>
+
+    <div class="card">
+      <div class="section-title" style="color:#e67c00">👤 Kate — Favourite classes</div>
+      <p style="font-size:12px;color:#999;margin-bottom:0.75rem">Edit when class times change.</p>
+      <div class="fav-list" id="favListKate"><div class="loading">Loading...</div></div>
+      <button class="add-btn" onclick="addFavRow('kate')">+ Add class</button>
+    </div>
+    <div class="save-bar">
+      <span class="saved-msg" id="favSavedKate">✓ Saved</span>
+      <button class="save-btn" onclick="saveFavourites('kate')">Save Kate's favourites</button>
     </div>
   </div>
 </div>
@@ -172,7 +190,8 @@ const CF_URL = "https://europe-west2-dl-booking.cloudfunctions.net/dl-booking";
 const DAYS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 const DAY_FULL = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 
-let statusData = null;
+let statusDataChris = null;
+let statusDataKate = null;
 let weekOffset = 0;
 
 // PIN
@@ -250,13 +269,18 @@ function showTab(name) {
 
 async function loadAll() {
   try {
-    const res = await fetch(CF_URL + "/api/status");
-    statusData = await res.json();
+    const [resChris, resKate] = await Promise.all([
+      fetch(CF_URL + "/api/status?member=chris"),
+      fetch(CF_URL + "/api/status?member=kate")
+    ]);
+    statusDataChris = await resChris.json();
+    statusDataKate = await resKate.json();
     renderCalendar();
-    document.getElementById("pauseFrom").value = statusData.pause_from || "";
-    document.getElementById("pauseTo").value = statusData.pause_to || "";
+    document.getElementById("pauseFrom").value = statusDataChris.pause_from || "";
+    document.getElementById("pauseTo").value = statusDataChris.pause_to || "";
   } catch(e) {
-    document.getElementById("calGrid").innerHTML = '<div class="error-msg">Failed to load data. Please try again.</div>';
+    document.getElementById("calGridChris").innerHTML = '<div class="error-msg">Failed to load data. Please try again.</div>';
+    document.getElementById("calGridKate").innerHTML = '<div class="error-msg">Failed to load data. Please try again.</div>';
   }
   loadFavourites();
 }
@@ -278,16 +302,14 @@ function fmtDate(d) {
   return `${y}-${m}-${day}`;
 }
 
-function renderCalendar() {
+function renderCalendarGrid(gridId, statusData, member) {
+  if(!statusData) return;
   const dates = getWeekDates(weekOffset);
   const today = new Date(); today.setHours(0,0,0,0);
   const start = fmtDate(dates[0]), end = fmtDate(dates[6]);
-  document.getElementById("weekLabel").textContent =
-    dates[0].toLocaleDateString("en-GB",{day:"numeric",month:"short"}) + " – " +
-    dates[6].toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"});
 
   const byDate = {};
-  if(statusData && statusData.classes) {
+  if(statusData.classes) {
     statusData.classes.forEach(c => {
       if(c.date >= start && c.date <= end) {
         if(!byDate[c.date]) byDate[c.date] = [];
@@ -313,8 +335,8 @@ function renderCalendar() {
         const enabled = c.enabled;
         const slotState = c.booked === "booked" ? "booked" : (enabled ? (c.booked === "trying" ? "trying" : "") : "disabled");
         const statusText = c.booked === "booked" ? "✓ Booked" : (enabled ? "↻ Still trying" : "✕ Skip");
-        const shortName = c.name.replace("TENNIS CLUB SESSION - ","Tennis ").replace("Padel Club Social Session","Padel Social").replace("CARDIO TENNIS","Cardio Tennis");
-        html += `<div class="slot ${slotState}" data-key="${c.key}" data-enabled="${enabled}" onclick="toggleSlot(this,'${c.key}','${c.booked}')">
+        const shortName = c.name.replace("TENNIS CLUB SESSION - ","Tennis ").replace("Padel Club Social Session","Padel Social").replace("CARDIO TENNIS","Cardio Tennis").replace("Total Body Workout.","Total Body");
+        html += `<div class="slot ${slotState}" data-key="${c.key}" data-enabled="${enabled}" data-member="${member}" onclick="toggleSlot(this,'${c.key}','${c.booked}','${member}')">
           <div class="slot-time">${c.time}</div>
           <div class="slot-name">${shortName}</div>
           <div class="slot-status">${statusText}</div>
@@ -323,10 +345,19 @@ function renderCalendar() {
     }
     html += `</div>`;
   });
-  document.getElementById("calGrid").innerHTML = html;
+  document.getElementById(gridId).innerHTML = html;
 }
 
-async function toggleSlot(el, key, bookedState) {
+function renderCalendar() {
+  const dates = getWeekDates(weekOffset);
+  document.getElementById("weekLabel").textContent =
+    dates[0].toLocaleDateString("en-GB",{day:"numeric",month:"short"}) + " – " +
+    dates[6].toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"});
+  renderCalendarGrid("calGridChris", statusDataChris, "chris");
+  renderCalendarGrid("calGridKate", statusDataKate, "kate");
+}
+
+async function toggleSlot(el, key, bookedState, member) {
   const currentEnabled = el.dataset.enabled === "true";
   const newEnabled = !currentEnabled;
   el.dataset.enabled = newEnabled;
@@ -337,18 +368,17 @@ async function toggleSlot(el, key, bookedState) {
     el.className = "slot " + (newEnabled ? (bookedState === "trying" ? "trying" : "") : "disabled");
     el.querySelector(".slot-status").textContent = newEnabled ? "↻ Still trying" : "✕ Skip";
   }
-  // Auto-save immediately
   try {
     await fetch(CF_URL + "/api/preferences", {
       method:"POST",
       headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({preferences: {[key]: newEnabled}})
+      body: JSON.stringify({member, preferences: {[key]: newEnabled}})
     });
-    if(statusData && statusData.classes) {
-      statusData.classes.forEach(c => { if(c.key === key) c.enabled = newEnabled; });
+    const sd = member === "chris" ? statusDataChris : statusDataKate;
+    if(sd && sd.classes) {
+      sd.classes.forEach(c => { if(c.key === key) c.enabled = newEnabled; });
     }
   } catch(e) {
-    // Revert on failure
     el.dataset.enabled = currentEnabled;
     el.className = "slot " + (currentEnabled ? (bookedState === "booked" ? "booked" : bookedState === "trying" ? "trying" : "") : "disabled");
     el.querySelector(".slot-status").textContent = currentEnabled ? (bookedState === "booked" ? "✓ Booked" : "↻ Still trying") : "✕ Skip";
@@ -371,6 +401,7 @@ async function savePause() {
       method:"POST",
       headers:{"Content-Type":"application/json"},
       body: JSON.stringify({
+        member: "chris",
         preferences: {},
         pause_from: document.getElementById("pauseFrom").value,
         pause_to: document.getElementById("pauseTo").value
@@ -383,20 +414,22 @@ async function savePause() {
 // Favourites
 async function loadFavourites() {
   try {
-    const res = await fetch(CF_URL + "/api/favourites");
-    const favs = await res.json();
-    renderFavourites(favs);
+    const [resChris, resKate] = await Promise.all([
+      fetch(CF_URL + "/api/favourites?member=chris"),
+      fetch(CF_URL + "/api/favourites?member=kate")
+    ]);
+    renderFavourites(await resChris.json(), "favListChris");
+    renderFavourites(await resKate.json(), "favListKate");
   } catch(e) {
-    document.getElementById("favList").innerHTML = '<div class="error-msg">Failed to load favourites.</div>';
+    document.getElementById("favListChris").innerHTML = '<div class="error-msg">Failed to load.</div>';
+    document.getElementById("favListKate").innerHTML = '<div class="error-msg">Failed to load.</div>';
   }
 }
 
-function renderFavourites(favs) {
-  const list = document.getElementById("favList");
+function renderFavourites(favs, listId) {
+  const list = document.getElementById(listId);
   list.innerHTML = "";
-  favs.forEach((f, i) => {
-    list.appendChild(makeFavRow(f.day, f.time, f.name_contains));
-  });
+  favs.forEach(f => list.appendChild(makeFavRow(f.day, f.time, f.name_contains)));
 }
 
 function makeFavRow(day, time, name) {
@@ -412,12 +445,15 @@ function makeFavRow(day, time, name) {
   return row;
 }
 
-function addFavRow() {
-  document.getElementById("favList").appendChild(makeFavRow("Monday","08:00",""));
+function addFavRow(member) {
+  const listId = member === "chris" ? "favListChris" : "favListKate";
+  document.getElementById(listId).appendChild(makeFavRow("Monday","08:00",""));
 }
 
-async function saveFavourites() {
-  const rows = document.querySelectorAll("#favList .fav-row");
+async function saveFavourites(member) {
+  const listId = member === "chris" ? "favListChris" : "favListKate";
+  const savedId = member === "chris" ? "favSavedChris" : "favSavedKate";
+  const rows = document.querySelectorAll(`#${listId} .fav-row`);
   const favs = [];
   rows.forEach(row => {
     const day = row.querySelector("select").value;
@@ -429,9 +465,9 @@ async function saveFavourites() {
     await fetch(CF_URL + "/api/favourites", {
       method:"POST",
       headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({favourites: favs})
+      body: JSON.stringify({member, favourites: favs})
     });
-    showSaved("favSaved");
+    showSaved(savedId);
     await loadAll();
   } catch(e) { alert("Failed to save. Please try again."); }
 }
