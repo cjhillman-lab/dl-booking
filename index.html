@@ -37,7 +37,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .week-nav{display:flex;align-items:center;gap:8px;margin-bottom:1rem}
 .week-label{flex:1;text-align:center;font-size:14px;font-weight:600}
 .nav-btn{padding:6px 12px;border:1px solid #ddd;border-radius:8px;background:#fff;cursor:pointer;font-size:14px}
-.cal-grid{display:grid;grid-template-columns:repeat(7,minmax(90px,1fr));gap:6px}
+.cal-grid{display:grid;grid-template-columns:repeat(14,minmax(90px,90px));gap:6px;width:max-content}
 .cal-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
 .day-col{display:flex;flex-direction:column;gap:5px}
 .day-hdr{text-align:center;padding:4px 2px 8px}
@@ -335,7 +335,7 @@ function renderCalendarGrid(gridId, statusData, member) {
         <div class="day-num${isToday?" today":""}">${d.getDate()}</div>
       </div>`;
     if(dayClasses.length === 0) {
-      html += `<div class="no-classes">—</div>`;
+      html += ``;
     } else {
       dayClasses.forEach(c => {
         const enabled = c.enabled;
