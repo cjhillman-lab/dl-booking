@@ -55,7 +55,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .slot-status{font-size:10px;margin-top:2px;color:#555}
 .slot.booked .slot-status{color:#137333}
 .slot.trying .slot-status{color:#1a73e8}
-.no-classes{font-size:11px;color:#ccc;text-align:center;padding:12px 2px}
+.slot.pending{background:#fff8e1;border-color:#ffe082}
+.slot.pending .slot-status{color:#f57f17}
 .legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:0.75rem}
 .legend-item{display:flex;align-items:center;gap:5px;font-size:12px;color:#666}
 .legend-dot{width:10px;height:10px;border-radius:3px;border:1px solid #ddd}
@@ -118,9 +119,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <!-- CALENDAR TAB -->
   <div id="tab-calendar">
     <div class="week-nav">
-      <button class="nav-btn" onclick="prevWeek()">&#8249;</button>
       <span class="week-label" id="weekLabel"></span>
-      <button class="nav-btn" onclick="nextWeek()">&#8250;</button>
     </div>
 
     <div class="card">
@@ -129,6 +128,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div class="legend">
         <div class="legend-item"><div class="legend-dot" style="background:#e6f4ea;border-color:#81c995"></div>Booked</div>
         <div class="legend-item"><div class="legend-dot" style="background:#e8f0fe;border-color:#a8c7fa"></div>Still trying</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#fff8e1;border-color:#ffe082"></div>Pending (not yet bookable)</div>
         <div class="legend-item"><div class="legend-dot" style="background:#f8f8f8"></div>Skip</div>
       </div>
     </div>
@@ -192,7 +192,6 @@ const DAY_FULL = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday",
 
 let statusDataChris = null;
 let statusDataKate = null;
-let weekOffset = 0;
 
 // PIN
 const SESSION_KEY = "dl_booking_session";
@@ -285,14 +284,15 @@ async function loadAll() {
   loadFavourites();
 }
 
-// Calendar
-function getWeekDates(offset) {
+// Calendar — 14 day rolling view from today
+function get14Days() {
   const today = new Date();
   today.setHours(0,0,0,0);
-  const dow = (today.getDay() + 6) % 7;
-  const monday = new Date(today);
-  monday.setDate(today.getDate() - dow + offset * 7);
-  return Array.from({length:7}, (_, i) => { const d = new Date(monday); d.setDate(monday.getDate()+i); return d; });
+  return Array.from({length:14}, (_, i) => {
+    const d = new Date(today);
+    d.setDate(today.getDate() + i);
+    return d;
+  });
 }
 
 function fmtDate(d) {
@@ -304,9 +304,14 @@ function fmtDate(d) {
 
 function renderCalendarGrid(gridId, statusData, member) {
   if(!statusData) return;
-  const dates = getWeekDates(weekOffset);
+  const dates = get14Days();
   const today = new Date(); today.setHours(0,0,0,0);
-  const start = fmtDate(dates[0]), end = fmtDate(dates[6]);
+  const start = fmtDate(dates[0]), end = fmtDate(dates[13]);
+
+  // Calculate booking window cutoff (9 days from today)
+  const cutoff = new Date(today);
+  cutoff.setDate(today.getDate() + 9);
+  const cutoffStr = fmtDate(cutoff);
 
   const byDate = {};
   if(statusData.classes) {
@@ -322,6 +327,7 @@ function renderCalendarGrid(gridId, statusData, member) {
   dates.forEach(d => {
     const ds = fmtDate(d);
     const isToday = d.getTime() === today.getTime();
+    const isPending = ds >= cutoffStr;
     const dayClasses = byDate[ds] || [];
     html += `<div class="day-col">
       <div class="day-hdr">
@@ -333,8 +339,14 @@ function renderCalendarGrid(gridId, statusData, member) {
     } else {
       dayClasses.forEach(c => {
         const enabled = c.enabled;
-        const slotState = c.booked === "booked" ? "booked" : (enabled ? (c.booked === "trying" ? "trying" : "") : "disabled");
-        const statusText = c.booked === "booked" ? "✓ Booked" : (enabled ? "↻ Still trying" : "✕ Skip");
+        let slotState, statusText;
+        if(isPending) {
+          slotState = enabled ? "pending" : "disabled";
+          statusText = enabled ? "⏳ Pending" : "✕ Skip";
+        } else {
+          slotState = c.booked === "booked" ? "booked" : (enabled ? (c.booked === "trying" ? "trying" : "") : "disabled");
+          statusText = c.booked === "booked" ? "✓ Booked" : (enabled ? "↻ Still trying" : "✕ Skip");
+        }
         const shortName = c.name.replace("TENNIS CLUB SESSION - ","Tennis ").replace("Padel Club Social Session","Padel Social").replace("CARDIO TENNIS","Cardio Tennis").replace("Total Body Workout.","Total Body");
         html += `<div class="slot ${slotState}" data-key="${c.key}" data-enabled="${enabled}" data-member="${member}" onclick="toggleSlot(this,'${c.key}','${c.booked}','${member}')">
           <div class="slot-time">${c.time}</div>
@@ -349,10 +361,10 @@ function renderCalendarGrid(gridId, statusData, member) {
 }
 
 function renderCalendar() {
-  const dates = getWeekDates(weekOffset);
+  const dates = get14Days();
   document.getElementById("weekLabel").textContent =
     dates[0].toLocaleDateString("en-GB",{day:"numeric",month:"short"}) + " – " +
-    dates[6].toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"});
+    dates[13].toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"});
   renderCalendarGrid("calGridChris", statusDataChris, "chris");
   renderCalendarGrid("calGridKate", statusDataKate, "kate");
 }
@@ -385,9 +397,6 @@ async function toggleSlot(el, key, bookedState, member) {
     alert("Failed to save. Please try again.");
   }
 }
-
-function prevWeek() { weekOffset--; renderCalendar(); }
-function nextWeek() { weekOffset++; renderCalendar(); }
 
 // Pause
 function clearPause() {
