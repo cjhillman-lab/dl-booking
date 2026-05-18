@@ -237,6 +237,8 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("loginWrap").style.display = "none";
     document.getElementById("app").style.display = "block";
     loadAll();
+    // Auto-refresh every 5 minutes
+    setInterval(loadAll, 5 * 60 * 1000);
   }
 });
 
@@ -259,6 +261,7 @@ function checkPin() {
     document.getElementById("loginWrap").style.display = "none";
     document.getElementById("app").style.display = "block";
     loadAll();
+    setInterval(loadAll, 5 * 60 * 1000);
   } else {
     document.getElementById("loginError").style.display = "block";
     ["p0","p1","p2","p3"].forEach(id => document.getElementById(id).value = "");
@@ -325,9 +328,11 @@ function renderCalendarGrid(gridId, statusData, member) {
   const today = new Date(); today.setHours(0,0,0,0);
   const start = fmtDate(dates[0]), end = fmtDate(dates[13]);
 
-  // Calculate booking window cutoff (9 days from today)
+  // After 8pm the next day's window has opened, so advance cutoff by 1
+  const now = new Date();
+  const extraDay = now.getHours() >= 20 ? 1 : 0;
   const cutoff = new Date(today);
-  cutoff.setDate(today.getDate() + 9);
+  cutoff.setDate(today.getDate() + 9 + extraDay);
   const cutoffStr = fmtDate(cutoff);
 
   const byDate = {};
