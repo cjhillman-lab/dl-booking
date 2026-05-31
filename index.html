@@ -498,15 +498,16 @@ async function saveFavourites(member) {
       headers:{"Content-Type":"application/json"},
       body: JSON.stringify({member, favourites: favs})
     });
-    showSaved(savedId);
+    showSaved(savedId, "✓ Saved — classes will appear within 5 minutes");
     await loadAll();
   } catch(e) { alert("Failed to save. Please try again."); }
 }
 
-function showSaved(id) {
+function showSaved(id, msg) {
   const el = document.getElementById(id);
+  el.textContent = msg || "✓ Saved";
   el.style.display = "block";
-  setTimeout(() => el.style.display = "none", 3000);
+  setTimeout(() => el.style.display = "none", 5000);
 }
 </script>
 </body>
