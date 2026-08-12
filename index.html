@@ -328,12 +328,13 @@ function renderCalendarGrid(gridId, statusData, member) {
   const today = new Date(); today.setHours(0,0,0,0);
   const start = fmtDate(dates[0]), end = fmtDate(dates[13]);
 
-  // After 8pm the next day's window has opened, so advance cutoff by 1
-  const now = new Date();
-  const extraDay = now.getHours() >= 20 ? 1 : 0;
-  const cutoff = new Date(today);
-  cutoff.setDate(today.getDate() + 9 + extraDay);
-  const cutoffStr = fmtDate(cutoff);
+  // A class is pending if its booking window hasn't opened yet (class_time - 9 days > now)
+  const nowMs = Date.now();
+  function isBookingOpen(dateStr, timeStr) {
+    const classMs = new Date(`${dateStr}T${timeStr}:00`).getTime();
+    const openMs = classMs - 9 * 24 * 60 * 60 * 1000;
+    return nowMs >= openMs;
+  }
 
   const byDate = {};
   if(statusData.classes) {
@@ -349,7 +350,6 @@ function renderCalendarGrid(gridId, statusData, member) {
   dates.forEach(d => {
     const ds = fmtDate(d);
     const isToday = d.getTime() === today.getTime();
-    const isPending = ds >= cutoffStr;
     const dayClasses = byDate[ds] || [];
     html += `<div class="day-col">
       <div class="day-hdr">
@@ -361,13 +361,17 @@ function renderCalendarGrid(gridId, statusData, member) {
     } else {
       dayClasses.forEach(c => {
         const enabled = c.enabled;
+        const bookingOpen = isBookingOpen(c.date, c.time);
         let slotState, statusText;
-        if(isPending) {
+        if(c.booked === "booked") {
+          slotState = "booked";
+          statusText = "✓ Booked";
+        } else if(!bookingOpen) {
           slotState = enabled ? "pending" : "disabled";
           statusText = enabled ? "⏳ Pending" : "✕ Skip";
         } else {
-          slotState = c.booked === "booked" ? "booked" : (enabled ? (c.booked === "trying" ? "trying" : "") : "disabled");
-          statusText = c.booked === "booked" ? "✓ Booked" : (enabled ? "↻ Still trying" : "✕ Skip");
+          slotState = enabled ? (c.booked === "trying" ? "trying" : "") : "disabled";
+          statusText = enabled ? "↻ Still trying" : "✕ Skip";
         }
         const shortName = c.name.replace("TENNIS CLUB SESSION - ","Tennis ").replace("Padel Club Social Session","Padel Social").replace("CARDIO TENNIS","Cardio Tennis").replace("Total Body Workout.","Total Body");
         html += `<div class="slot ${slotState}" data-key="${c.key}" data-enabled="${enabled}" data-member="${member}" onclick="toggleSlot(this,'${c.key}','${c.booked}','${member}')">
