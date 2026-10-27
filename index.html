@@ -159,20 +159,35 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <!-- PAUSE TAB -->
   <div id="tab-pause" style="display:none">
     <div class="card">
-      <div class="section-title">Pause all bookings</div>
+      <div class="section-title" style="color:#1a73e8">👤 Chris — Pause bookings</div>
       <div class="pause-row">
         <label>From</label>
-        <input type="date" id="pauseFrom">
+        <input type="date" id="pauseFromChris">
         <label>To</label>
-        <input type="date" id="pauseTo">
-        <button class="clear-btn" onclick="clearPause()">Clear</button>
+        <input type="date" id="pauseToChris">
+        <button class="clear-btn" onclick="clearPause('chris')">Clear</button>
       </div>
-      <p style="font-size:12px;color:#999">While paused, no advance bookings or cancellation monitoring will occur for dates in this range.</p>
     </div>
     <div class="save-bar">
-      <span class="saved-msg" id="pauseSaved">✓ Saved</span>
-      <button class="save-btn" onclick="savePause()">Save pause</button>
+      <span class="saved-msg" id="pauseSavedChris">✓ Saved</span>
+      <button class="save-btn" onclick="savePause('chris')">Save Chris's pause</button>
     </div>
+
+    <div class="card">
+      <div class="section-title" style="color:#e67c00">👤 Kate — Pause bookings</div>
+      <div class="pause-row">
+        <label>From</label>
+        <input type="date" id="pauseFromKate">
+        <label>To</label>
+        <input type="date" id="pauseToKate">
+        <button class="clear-btn" onclick="clearPause('kate')">Clear</button>
+      </div>
+    </div>
+    <div class="save-bar">
+      <span class="saved-msg" id="pauseSavedKate">✓ Saved</span>
+      <button class="save-btn" onclick="savePause('kate')">Save Kate's pause</button>
+    </div>
+    <p style="font-size:12px;color:#999;padding:0 0.25rem">While paused, no advance bookings or cancellation monitoring happen for that person in the date range.</p>
   </div>
 
   <!-- FAVOURITES TAB -->
@@ -295,8 +310,10 @@ async function loadAll() {
     statusDataChris = await resChris.json();
     statusDataKate = await resKate.json();
     renderCalendar();
-    document.getElementById("pauseFrom").value = statusDataChris.pause_from || "";
-    document.getElementById("pauseTo").value = statusDataChris.pause_to || "";
+    document.getElementById("pauseFromChris").value = statusDataChris.pause_from || "";
+    document.getElementById("pauseToChris").value = statusDataChris.pause_to || "";
+    document.getElementById("pauseFromKate").value = statusDataKate.pause_from || "";
+    document.getElementById("pauseToKate").value = statusDataKate.pause_to || "";
   } catch(e) {
     document.getElementById("calGridChris").innerHTML = '<div class="error-msg">Failed to load data. Please try again.</div>';
     document.getElementById("calGridKate").innerHTML = '<div class="error-msg">Failed to load data. Please try again.</div>';
@@ -425,24 +442,32 @@ async function toggleSlot(el, key, bookedState, member) {
 }
 
 // Pause
-function clearPause() {
-  document.getElementById("pauseFrom").value = "";
-  document.getElementById("pauseTo").value = "";
+function pauseIds(member) {
+  const s = member === "chris" ? "Chris" : "Kate";
+  return {from: "pauseFrom" + s, to: "pauseTo" + s, saved: "pauseSaved" + s};
 }
 
-async function savePause() {
+function clearPause(member) {
+  const ids = pauseIds(member);
+  document.getElementById(ids.from).value = "";
+  document.getElementById(ids.to).value = "";
+}
+
+async function savePause(member) {
+  const ids = pauseIds(member);
   try {
     await fetch(CF_URL + "/api/preferences", {
       method:"POST",
       headers:{"Content-Type":"application/json"},
       body: JSON.stringify({
-        member: "chris",
+        member,
         preferences: {},
-        pause_from: document.getElementById("pauseFrom").value,
-        pause_to: document.getElementById("pauseTo").value
+        pause_from: document.getElementById(ids.from).value,
+        pause_to: document.getElementById(ids.to).value
       })
     });
-    showSaved("pauseSaved");
+    showSaved(ids.saved);
+    await loadAll();
   } catch(e) { alert("Failed to save. Please try again."); }
 }
 
